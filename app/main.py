@@ -11,9 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
-from .models import HostRangeRequest, HostRangeResponse, HostStatus
+from .models import HostRangeRequest, HostRangeResponse, HostStatus, SettingsPayload, SettingsUpdate
 from .monitor import MonitorService, load_hosts
-from .settings import settings
+from .settings import persist_settings, settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -118,6 +118,37 @@ async def host_page(
     return TEMPLATES.TemplateResponse(
         "host_detail.html", {"request": request, "host": host, "settings": settings}
     )
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request) -> HTMLResponse:
+    return TEMPLATES.TemplateResponse(
+        "settings.html", {"request": request, "settings": settings}
+    )
+
+
+@app.get("/api/settings", response_model=SettingsPayload)
+async def get_settings() -> SettingsPayload:
+    return SettingsPayload(**settings.model_dump())
+
+
+@app.post("/api/settings", response_model=SettingsPayload)
+async def update_settings(payload: SettingsUpdate) -> SettingsPayload:
+    updates = payload.model_dump(exclude_none=False, exclude_unset=True)
+
+    if recipients := updates.get("smtp_recipients"):
+        if isinstance(recipients, str):
+            updates["smtp_recipients"] = [
+                email.strip() for email in recipients.split(",") if email.strip()
+            ]
+
+    for key, value in list(updates.items()):
+        if isinstance(value, str) and value.strip() == "":
+            updates[key] = None
+
+    settings.apply_overrides(updates)
+    persist_settings(settings)
+    return SettingsPayload(**settings.model_dump())
 
 
 if __name__ == "__main__":

@@ -150,7 +150,19 @@ class MonitorService:
         try:
             result = await asyncio.to_thread(ping, host.address, count=3, timeout=2)
             status.latency_ms = result.rtt_avg_ms
+            status.latency_min_ms = getattr(result, "rtt_min_ms", None)
+            status.latency_max_ms = getattr(result, "rtt_max_ms", None)
             status.packet_loss_pct = result.packet_loss * 100
+            status.packets_sent = getattr(result, "stats_packets_sent", None)
+            status.packets_received = getattr(result, "stats_packets_returned", None)
+            if status.packet_loss_pct is not None:
+                status.packet_success_pct = max(0.0, 100.0 - status.packet_loss_pct)
+            elif status.packets_sent:
+                status.packet_success_pct = (
+                    100.0 * status.packets_received / status.packets_sent
+                    if status.packets_received is not None
+                    else None
+                )
             status.reachable = result.success()
             status.notes = []
 
@@ -162,6 +174,13 @@ class MonitorService:
             status.snmp_sysname = await asyncio.to_thread(self._fetch_sysname, host)
         except Exception as exc:  # pragma: no cover - network dependent
             status.reachable = False
+            status.latency_ms = None
+            status.latency_min_ms = None
+            status.latency_max_ms = None
+            status.packet_loss_pct = None
+            status.packet_success_pct = None
+            status.packets_sent = None
+            status.packets_received = None
             status.notes = [f"Error checking host: {exc}"]
         status.last_checked = now
 

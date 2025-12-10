@@ -13,14 +13,22 @@ logger = logging.getLogger(__name__)
 
 class NotificationManager:
     def __init__(self) -> None:
-        self.smtp_enabled = bool(
+        self.smtp_enabled: bool | None = None
+        self.slack_enabled: bool | None = None
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(
             settings.smtp_host
             and settings.smtp_username
             and settings.smtp_password
             and settings.smtp_sender
             and settings.smtp_recipients
         )
-        self.slack_enabled = bool(settings.slack_webhook_url)
+
+    @property
+    def slack_configured(self) -> bool:
+        return bool(settings.slack_webhook_url)
 
     def _build_email(self, subject: str, body: str) -> EmailMessage:
         message = EmailMessage()
@@ -31,7 +39,7 @@ class NotificationManager:
         return message
 
     def send_email(self, subject: str, body: str) -> None:
-        if not self.smtp_enabled:
+        if not self.smtp_configured:
             logger.info("SMTP not configured; skipping email delivery")
             return
         message = self._build_email(subject, body)
@@ -45,7 +53,7 @@ class NotificationManager:
             logger.exception("Failed to send email: %s", exc)
 
     async def send_slack(self, text: str) -> None:
-        if not self.slack_enabled:
+        if not self.slack_configured:
             logger.info("Slack webhook not configured; skipping notification")
             return
         try:

@@ -7,14 +7,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
-  <body data-address="{{ host.address }}">
+  <body data-address="{{ host.address }}" data-poll-interval="{{ settings.monitor_interval_seconds }}">
     <header class="hero hero--compact">
       <div>
         <p class="eyebrow"><a href="/">← Back to dashboard</a></p>
         <h1>Host details</h1>
         <p class="muted">Expanded metrics for {{ host.name }} ({{ host.address }}).</p>
       </div>
-      <div class="cta">
+      <div class="cta cta--split">
+        <a class="link" href="/settings">Settings</a>
         <button id="delete-host" class="ghost" data-address="{{ host.address }}">Delete host</button>
       </div>
     </header>
@@ -33,8 +34,24 @@
             <p id="latency">{{ '%.1f' % host.latency_ms if host.latency_ms is not none else '—' }} ms</p>
           </div>
           <div>
+            <p class="muted">Min latency</p>
+            <p id="latency-min">{{ '%.1f' % host.latency_min_ms if host.latency_min_ms is not none else '—' }} ms</p>
+          </div>
+          <div>
+            <p class="muted">Max latency</p>
+            <p id="latency-max">{{ '%.1f' % host.latency_max_ms if host.latency_max_ms is not none else '—' }} ms</p>
+          </div>
+          <div>
             <p class="muted">Packet loss</p>
             <p id="packet-loss">{{ '%.1f' % host.packet_loss_pct if host.packet_loss_pct is not none else '—' }}%</p>
+          </div>
+          <div>
+            <p class="muted">Success rate</p>
+            <p id="success-rate">{{ '%.1f' % (100 - host.packet_loss_pct) if host.packet_loss_pct is not none else '—' }}%</p>
+          </div>
+          <div>
+            <p class="muted">Packets (received/sent)</p>
+            <p id="packets">{{ host.packets_received if host.packets_received is not none else '—' }}/{{ host.packets_sent if host.packets_sent is not none else '—' }}</p>
           </div>
           <div>
             <p class="muted">SNMP sysName</p>
@@ -43,6 +60,10 @@
           <div>
             <p class="muted">Last checked</p>
             <p id="last-checked">{{ host.last_checked.strftime('%Y-%m-%d %H:%M:%S') if host.last_checked else '—' }}</p>
+          </div>
+          <div>
+            <p class="muted">Last alert</p>
+            <p id="last-alert">{{ host.last_alert.strftime('%Y-%m-%d %H:%M:%S') if host.last_alert else '—' }}</p>
           </div>
           <div>
             <p class="muted">Notes</p>

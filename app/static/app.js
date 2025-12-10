@@ -22,8 +22,8 @@ async function fetchHosts() {
           <div class="muted"><a href="/hosts/${host.address}">${host.address}</a></div>
         </div>
       </div>
-      <div class="table__cell">${host.latency_ms ? host.latency_ms.toFixed(1) : '—'}</div>
-      <div class="table__cell">${host.packet_loss_pct ? host.packet_loss_pct.toFixed(1) : '—'}</div>
+      <div class="table__cell">${host.latency_ms != null ? host.latency_ms.toFixed(1) : '—'}</div>
+      <div class="table__cell">${host.packet_loss_pct != null ? host.packet_loss_pct.toFixed(1) : '—'}</div>
       <div class="table__cell">${host.snmp_sysname || '—'}</div>
       <div class="table__cell">${host.last_checked ? new Date(host.last_checked).toLocaleTimeString() : '—'}</div>
       <div class="table__cell">${host.notes && host.notes.length ? host.notes.join('; ') : '—'}</div>
@@ -64,7 +64,8 @@ async function triggerRescan() {
 }
 
 fetchHosts();
-setInterval(fetchHosts, 8000);
+const pollIntervalMs = Math.max(4000, Number(document.body.dataset.pollInterval || '8') * 1000);
+setInterval(fetchHosts, pollIntervalMs);
 
 document.getElementById('rescan').addEventListener('click', triggerRescan);
 

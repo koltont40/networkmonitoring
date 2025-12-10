@@ -54,6 +54,12 @@ body {
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
+.cta--split {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .hero .cta button:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 30px rgba(59, 130, 246, 0.45);
@@ -108,6 +114,10 @@ main {
   border-radius: 10px;
   color: var(--text);
   padding: 10px 12px;
+}
+
+.form__field--wide {
+  grid-column: 1 / -1;
 }
 
 .form__actions {
@@ -231,6 +241,18 @@ main {
 }
 
 .ghost:hover {
+  border-color: #8b949e;
+}
+
+.link {
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.link:hover {
   border-color: #8b949e;
 }
 
