@@ -53,7 +53,7 @@ class MonitorService:
         self.history: dict[str, list[HostSample]] = {host.address: [] for host in self.hosts}
         self._task: asyncio.Task | None = None
         self.notifications = NotificationManager()
-        self._previous_counters: dict[str, tuple[int, int, datetime]] = {}
+        self._previous_counters: dict[str, tuple[int, int, datetime, int]] = {}
 
     def get_statuses(self, reachable_only: bool = False) -> list[HostStatus]:
         statuses = list(self.statuses.values())
@@ -241,11 +241,16 @@ class MonitorService:
             del samples[:-max_samples]
 
 
+    def _community(self, host: HostConfig) -> CommunityData:
+        """Return SNMP v2c community settings for a host."""
+
+        return CommunityData(host.snmp_community, mpModel=1)
+
     def _fetch_sysname(self, host: HostConfig) -> str | None:
         try:
             iterator = getCmd(
                 SnmpEngine(),
-                CommunityData(host.snmp_community),
+                self._community(host),
                 UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
                 ContextData(),
                 ObjectType(ObjectIdentity("SNMPv2-MIB", "sysName", 0)),
@@ -269,7 +274,7 @@ class MonitorService:
         try:
             iterator = getCmd(
                 SnmpEngine(),
-                CommunityData(host.snmp_community),
+                self._community(host),
                 UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
                 ContextData(),
                 ObjectType(cpu_idle_oid),
@@ -320,7 +325,7 @@ class MonitorService:
                 try:
                     iterator = getCmd(
                         SnmpEngine(),
-                        CommunityData(host.snmp_community),
+                        self._community(host),
                         UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
                         ContextData(),
                         ObjectType(oid),
@@ -373,50 +378,68 @@ class MonitorService:
     ) -> tuple[float | None, float | None]:
         """Compute interface throughput in bits per second using counter deltas."""
 
-        in_octets_oid = ObjectIdentity("1.3.6.1.2.1.2.2.1.10.1")
-        out_octets_oid = ObjectIdentity("1.3.6.1.2.1.2.2.1.16.1")
+        high_cap_in = ObjectIdentity("1.3.6.1.2.1.31.1.1.1.6.1")
+        high_cap_out = ObjectIdentity("1.3.6.1.2.1.31.1.1.1.10.1")
+        legacy_in = ObjectIdentity("1.3.6.1.2.1.2.2.1.10.1")
+        legacy_out = ObjectIdentity("1.3.6.1.2.1.2.2.1.16.1")
 
-        try:
+        def _fetch_counters(oids: list[ObjectIdentity]) -> dict[str, int]:
             iterator = getCmd(
                 SnmpEngine(),
-                CommunityData(host.snmp_community),
+                self._community(host),
                 UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
                 ContextData(),
-                ObjectType(in_octets_oid),
-                ObjectType(out_octets_oid),
+                *(ObjectType(oid) for oid in oids),
             )
+            counters: dict[str, int] = {}
             error_indication, error_status, _error_index, var_binds = next(iterator)
             if error_indication or error_status:
-                return None, None
-
-            values: dict[str, int] = {}
+                return counters
             for oid, value in var_binds:
                 try:
-                    values[str(oid)] = int(value)
+                    counters[str(oid)] = int(value)
                 except (TypeError, ValueError):
                     continue
+            return counters
 
-            in_octets = values.get(str(in_octets_oid.getOid()))
-            out_octets = values.get(str(out_octets_oid.getOid()))
+        try:
+            values = _fetch_counters([high_cap_in, high_cap_out])
+            counter_mod = 2**64
+
+            if not values:
+                values = _fetch_counters([legacy_in, legacy_out])
+                counter_mod = 2**32
+
+            in_octets = values.get(str(high_cap_in.getOid())) or values.get(
+                str(legacy_in.getOid())
+            )
+            out_octets = values.get(str(high_cap_out.getOid())) or values.get(
+                str(legacy_out.getOid())
+            )
             if in_octets is None or out_octets is None:
                 return None, None
 
             previous = self._previous_counters.get(host.address)
-            self._previous_counters[host.address] = (in_octets, out_octets, now)
+            self._previous_counters[host.address] = (in_octets, out_octets, now, counter_mod)
             if not previous:
                 return None, None
 
-            prev_in, prev_out, prev_time = previous
+            prev_in, prev_out, prev_time, prev_mod = previous
             elapsed = (now - prev_time).total_seconds()
             if elapsed <= 0:
                 return None, None
 
-            def _compute_rate(current: int, previous_value: int) -> float | None:
+            def _compute_rate(current: int, previous_value: int, modulus: int) -> float | None:
+                if current < previous_value:
+                    current += modulus
                 if current < previous_value:
                     return None
                 return ((current - previous_value) * 8) / elapsed
 
-            return _compute_rate(in_octets, prev_in), _compute_rate(out_octets, prev_out)
+            return (
+                _compute_rate(in_octets, prev_in, prev_mod),
+                _compute_rate(out_octets, prev_out, prev_mod),
+            )
         except Exception:
             return None, None
 
