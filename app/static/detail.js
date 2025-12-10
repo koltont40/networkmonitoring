@@ -21,10 +21,12 @@ const deleteButton = document.getElementById('delete-host');
 const healthChartCtx = document.getElementById('health-chart')?.getContext('2d');
 const systemChartCtx = document.getElementById('system-chart')?.getContext('2d');
 const interfaceChartCtx = document.getElementById('interface-chart')?.getContext('2d');
+const throughputChartCtx = document.getElementById('throughput-chart')?.getContext('2d');
 
 let healthChart;
 let systemChart;
 let interfaceChart;
+let throughputChart;
 let latestSampleTimestamp;
 
 function formatTimestamp(iso) {
@@ -32,7 +34,7 @@ function formatTimestamp(iso) {
 }
 
 function buildOrUpdateCharts(history) {
-  if (!healthChartCtx || !interfaceChartCtx || !systemChartCtx) return;
+  if (!healthChartCtx || !interfaceChartCtx || !throughputChartCtx || !systemChartCtx) return;
 
   const labels = history.map((entry) => formatTimestamp(entry.timestamp));
   const latencyData = history.map((entry) => entry.latency_ms ?? null);
@@ -136,24 +138,6 @@ function buildOrUpdateCharts(history) {
             spanGaps: true,
             yAxisID: 'y1',
           },
-          {
-            label: 'Ingress (Mbps)',
-            data: ingress,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.18)',
-            tension: 0.25,
-            spanGaps: true,
-            yAxisID: 'y2',
-          },
-          {
-            label: 'Egress (Mbps)',
-            data: egress,
-            borderColor: '#f97316',
-            backgroundColor: 'rgba(249, 115, 22, 0.18)',
-            tension: 0.25,
-            spanGaps: true,
-            yAxisID: 'y2',
-          },
         ],
       },
       options: {
@@ -174,13 +158,6 @@ function buildOrUpdateCharts(history) {
             ticks: { color: '#e6edf3' },
             grid: { drawOnChartArea: false },
           },
-          y2: {
-            position: 'right',
-            beginAtZero: true,
-            title: { display: true, text: 'Throughput (Mbps)' },
-            ticks: { color: '#e6edf3' },
-            grid: { drawOnChartArea: false },
-          },
           x: {
             ticks: { color: '#e6edf3' },
             grid: { color: 'rgba(255,255,255,0.05)' },
@@ -195,9 +172,58 @@ function buildOrUpdateCharts(history) {
     interfaceChart.data.labels = labels;
     interfaceChart.data.datasets[0].data = successData;
     interfaceChart.data.datasets[1].data = packetsReceived;
-    interfaceChart.data.datasets[2].data = ingress;
-    interfaceChart.data.datasets[3].data = egress;
     interfaceChart.update();
+  }
+
+  if (!throughputChart) {
+    throughputChart = new Chart(throughputChartCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Ingress (Mbps)',
+            data: ingress,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
+          {
+            label: 'Egress (Mbps)',
+            data: egress,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249, 115, 22, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Throughput (Mbps)' },
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          x: {
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+        },
+        plugins: {
+          legend: { labels: { color: '#e6edf3' } },
+        },
+      },
+    });
+  } else {
+    throughputChart.data.labels = labels;
+    throughputChart.data.datasets[0].data = ingress;
+    throughputChart.data.datasets[1].data = egress;
+    throughputChart.update();
   }
 
   if (!systemChart) {
