@@ -53,8 +53,14 @@ class MonitorService:
         self._task: asyncio.Task | None = None
         self.notifications = NotificationManager()
 
-    def get_statuses(self) -> list[HostStatus]:
-        return list(self.statuses.values())
+    def get_statuses(self, reachable_only: bool = False) -> list[HostStatus]:
+        statuses = list(self.statuses.values())
+        if reachable_only:
+            return [status for status in statuses if status.reachable]
+        return statuses
+
+    def get_status(self, address: str) -> HostStatus | None:
+        return self.statuses.get(address)
 
     async def start(self) -> None:
         if self._task:
@@ -112,6 +118,15 @@ class MonitorService:
             self.statuses[host.address] = HostStatus(name=host.name, address=host.address)
             added.append(host)
         return added
+
+    def remove_host(self, address: str) -> bool:
+        """Remove a host from monitoring. Returns True if it existed."""
+
+        removed = self.statuses.pop(address, None)
+        if not removed:
+            return False
+        self.hosts = [host for host in self.hosts if host.address != address]
+        return True
 
     def hosts_from_range(
         self, range_text: str, community: str | None = None, snmp_port: int | None = None

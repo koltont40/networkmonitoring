@@ -33,6 +33,10 @@ body {
   box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
 }
 
+.hero--compact {
+  margin-bottom: 16px;
+}
+
 .hero h1 {
   margin: 6px 0 8px;
   font-size: 28px;
@@ -140,7 +144,7 @@ main {
 
 .table__head {
   display: grid;
-  grid-template-columns: 2fr repeat(5, 1fr);
+  grid-template-columns: 2fr repeat(6, 1fr);
   gap: 12px;
   padding: 12px 20px;
   text-transform: uppercase;
@@ -151,7 +155,7 @@ main {
 
 .table__row {
   display: grid;
-  grid-template-columns: 2fr repeat(5, 1fr);
+  grid-template-columns: 2fr repeat(6, 1fr);
   gap: 12px;
   padding: 14px 20px;
   align-items: center;
@@ -166,6 +170,16 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.table__cell--actions {
+  justify-content: flex-end;
+}
+
+.table__row--empty {
+  grid-column: 1 / -1;
+  justify-content: center;
+  color: var(--muted);
 }
 
 .badge {
@@ -207,13 +221,48 @@ main {
   color: #f87171;
 }
 
+.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ghost:hover {
+  border-color: #8b949e;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.card--detail {
+  padding-bottom: 8px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  padding: 16px 20px 20px;
+}
+
 @media (max-width: 900px) {
   .table__head,
   .table__row {
     grid-template-columns: 1.6fr repeat(4, 1fr);
   }
   .table__head div:nth-child(4),
-  .table__row div:nth-child(4) {
+  .table__row div:nth-child(4),
+  .table__head div:nth-child(6),
+  .table__row div:nth-child(6) {
     display: none;
   }
 }
@@ -227,8 +276,12 @@ main {
   }
   .table__head div:nth-child(4),
   .table__head div:nth-child(5),
+  .table__head div:nth-child(6),
+  .table__head div:nth-child(7),
   .table__row div:nth-child(4),
-  .table__row div:nth-child(5) {
+  .table__row div:nth-child(5),
+  .table__row div:nth-child(6),
+  .table__row div:nth-child(7) {
     display: none;
   }
 }

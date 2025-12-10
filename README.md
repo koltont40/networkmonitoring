@@ -8,6 +8,8 @@ A lightweight FastAPI-powered SNMP and ICMP monitor with a modern web dashboard.
 - Email and Slack notifications for failed or degraded hosts
 - Live dashboard with manual rescan button
 - Add hosts from the dashboard using CIDR blocks or start-end ranges with per-range SNMP communities
+- Dashboard only surfaces active (reachable) hosts to avoid subnet noise
+- Delete hosts or click through to a dedicated host detail page showing per-device metrics
 - Configurable polling interval and alert thresholds via environment variables
 
 ## Getting started

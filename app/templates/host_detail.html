@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host details - {{ host.address }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body data-address="{{ host.address }}">
+    <header class="hero hero--compact">
+      <div>
+        <p class="eyebrow"><a href="/">← Back to dashboard</a></p>
+        <h1>Host details</h1>
+        <p class="muted">Expanded metrics for {{ host.name }} ({{ host.address }}).</p>
+      </div>
+      <div class="cta">
+        <button id="delete-host" class="ghost" data-address="{{ host.address }}">Delete host</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card card--detail">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Polling every {{ settings.monitor_interval_seconds }}s</p>
+            <h2><span class="badge badge--{{ host.state }}" aria-hidden="true"></span> {{ host.address }}</h2>
+          </div>
+        </header>
+        <div class="detail-grid" id="detail-grid">
+          <div>
+            <p class="muted">Latency</p>
+            <p id="latency">{{ '%.1f' % host.latency_ms if host.latency_ms is not none else '—' }} ms</p>
+          </div>
+          <div>
+            <p class="muted">Packet loss</p>
+            <p id="packet-loss">{{ '%.1f' % host.packet_loss_pct if host.packet_loss_pct is not none else '—' }}%</p>
+          </div>
+          <div>
+            <p class="muted">SNMP sysName</p>
+            <p id="sysname">{{ host.snmp_sysname or '—' }}</p>
+          </div>
+          <div>
+            <p class="muted">Last checked</p>
+            <p id="last-checked">{{ host.last_checked.strftime('%Y-%m-%d %H:%M:%S') if host.last_checked else '—' }}</p>
+          </div>
+          <div>
+            <p class="muted">Notes</p>
+            <p id="notes">{{ '; '.join(host.notes) if host.notes else '—' }}</p>
+          </div>
+          <div>
+            <p class="muted">Status</p>
+            <p id="state">{{ host.state }}</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/detail.js"></script>
+  </body>
+</html>

@@ -1,9 +1,16 @@
 async function fetchHosts() {
-  const response = await fetch('/api/hosts');
+  const response = await fetch('/api/hosts?reachable_only=true');
   if (!response.ok) return;
   const hosts = await response.json();
   const tableBody = document.getElementById('table-body');
   tableBody.innerHTML = '';
+  if (!hosts.length) {
+    const empty = document.createElement('div');
+    empty.className = 'table__row table__row--empty';
+    empty.textContent = 'No active hosts detected.';
+    tableBody.appendChild(empty);
+    return;
+  }
   hosts.forEach((host) => {
     const row = document.createElement('div');
     row.className = 'table__row';
@@ -12,7 +19,7 @@ async function fetchHosts() {
         <span class="badge badge--${host.state}" aria-hidden="true"></span>
         <div>
           <div class="host">${host.name}</div>
-          <div class="muted">${host.address}</div>
+          <div class="muted"><a href="/hosts/${host.address}">${host.address}</a></div>
         </div>
       </div>
       <div class="table__cell">${host.latency_ms ? host.latency_ms.toFixed(1) : '—'}</div>
@@ -20,8 +27,26 @@ async function fetchHosts() {
       <div class="table__cell">${host.snmp_sysname || '—'}</div>
       <div class="table__cell">${host.last_checked ? new Date(host.last_checked).toLocaleTimeString() : '—'}</div>
       <div class="table__cell">${host.notes && host.notes.length ? host.notes.join('; ') : '—'}</div>
+      <div class="table__cell table__cell--actions"><button class="ghost" data-address="${host.address}">Delete</button></div>
     `;
     tableBody.appendChild(row);
+  });
+
+  document.querySelectorAll('.table__cell--actions button').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      const address = event.currentTarget.getAttribute('data-address');
+      event.currentTarget.disabled = true;
+      try {
+        const response = await fetch(`/api/hosts/${address}`, { method: 'DELETE' });
+        if (!response.ok) {
+          event.currentTarget.disabled = false;
+          return;
+        }
+        await fetchHosts();
+      } catch (error) {
+        event.currentTarget.disabled = false;
+      }
+    });
   });
 }
 

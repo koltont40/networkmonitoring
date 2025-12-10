@@ -80,24 +80,30 @@
             <div>SNMP sysName</div>
             <div>Last check</div>
             <div>Notes</div>
+            <div>Actions</div>
           </div>
           <div id="table-body">
-            {% for host in statuses %}
-            <div class="table__row" role="row">
-              <div class="table__cell">
-                <span class="badge badge--{{ host.state }}" aria-hidden="true"></span>
-                <div>
-                  <div class="host">{{ host.name }}</div>
-                  <div class="muted">{{ host.address }}</div>
+            {% if statuses %}
+              {% for host in statuses %}
+              <div class="table__row" role="row">
+                <div class="table__cell">
+                  <span class="badge badge--{{ host.state }}" aria-hidden="true"></span>
+                  <div>
+                    <div class="host">{{ host.name }}</div>
+                    <div class="muted"><a href="/hosts/{{ host.address }}">{{ host.address }}</a></div>
+                  </div>
                 </div>
+                <div class="table__cell">{{ '%.1f' % host.latency_ms if host.latency_ms is not none else '—' }}</div>
+                <div class="table__cell">{{ '%.1f' % host.packet_loss_pct if host.packet_loss_pct is not none else '—' }}</div>
+                <div class="table__cell">{{ host.snmp_sysname or '—' }}</div>
+                <div class="table__cell">{{ host.last_checked.strftime('%H:%M:%S') if host.last_checked else '—' }}</div>
+                <div class="table__cell">{{ '; '.join(host.notes) if host.notes else '—' }}</div>
+                <div class="table__cell table__cell--actions"><button class="ghost" data-address="{{ host.address }}">Delete</button></div>
               </div>
-              <div class="table__cell">{{ '%.1f' % host.latency_ms if host.latency_ms is not none else '—' }}</div>
-              <div class="table__cell">{{ '%.1f' % host.packet_loss_pct if host.packet_loss_pct is not none else '—' }}</div>
-              <div class="table__cell">{{ host.snmp_sysname or '—' }}</div>
-              <div class="table__cell">{{ host.last_checked.strftime('%H:%M:%S') if host.last_checked else '—' }}</div>
-              <div class="table__cell">{{ '; '.join(host.notes) if host.notes else '—' }}</div>
-            </div>
-            {% endfor %}
+              {% endfor %}
+            {% else %}
+              <div class="table__row table__row--empty" role="row">No active hosts detected.</div>
+            {% endif %}
           </div>
         </div>
       </section>

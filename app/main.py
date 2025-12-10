@@ -48,15 +48,25 @@ async def shutdown_event() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, monitor: Annotated[MonitorService, Depends(get_monitor)]):
-    statuses = monitor.get_statuses()
+    statuses = monitor.get_statuses(reachable_only=True)
     return TEMPLATES.TemplateResponse(
         "index.html", {"request": request, "statuses": statuses, "settings": settings}
     )
 
 
 @app.get("/api/hosts", response_model=list[HostStatus])
-async def hosts(monitor: Annotated[MonitorService, Depends(get_monitor)]):
-    return monitor.get_statuses()
+async def hosts(
+    monitor: Annotated[MonitorService, Depends(get_monitor)], reachable_only: bool = True
+):
+    return monitor.get_statuses(reachable_only=reachable_only)
+
+
+@app.get("/api/hosts/{address}", response_model=HostStatus)
+async def host_detail(address: str, monitor: Annotated[MonitorService, Depends(get_monitor)]):
+    host = monitor.get_status(address)
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+    return host
 
 
 @app.post("/api/rescan")
@@ -85,6 +95,28 @@ async def add_hosts(
     skipped = len(hosts) - len(added)
     return HostRangeResponse(
         added=len(added), skipped=skipped, hosts=[host.address for host in added]
+    )
+
+
+@app.delete("/api/hosts/{address}")
+async def delete_host(address: str, monitor: Annotated[MonitorService, Depends(get_monitor)]):
+    removed = monitor.remove_host(address)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Host not found")
+    return {"status": "deleted"}
+
+
+@app.get("/hosts/{address}", response_class=HTMLResponse)
+async def host_page(
+    address: str,
+    request: Request,
+    monitor: Annotated[MonitorService, Depends(get_monitor)],
+):
+    host = monitor.get_status(address)
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+    return TEMPLATES.TemplateResponse(
+        "host_detail.html", {"request": request, "host": host, "settings": settings}
     )
 
 
