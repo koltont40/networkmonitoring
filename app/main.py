@@ -11,7 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
-from .models import HostRangeRequest, HostRangeResponse, HostStatus, SettingsPayload, SettingsUpdate
+from .models import (
+    HostRangeRequest,
+    HostRangeResponse,
+    HostSample,
+    HostStatus,
+    SettingsPayload,
+    SettingsUpdate,
+)
 from .monitor import MonitorService, load_hosts
 from .settings import persist_settings, settings
 
@@ -67,6 +74,14 @@ async def host_detail(address: str, monitor: Annotated[MonitorService, Depends(g
     if not host:
         raise HTTPException(status_code=404, detail="Host not found")
     return host
+
+
+@app.get("/api/hosts/{address}/history", response_model=list[HostSample])
+async def host_history(address: str, monitor: Annotated[MonitorService, Depends(get_monitor)]):
+    host = monitor.get_status(address)
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+    return monitor.get_history(address)
 
 
 @app.post("/api/rescan")

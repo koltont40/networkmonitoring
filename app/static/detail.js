@@ -12,6 +12,158 @@ const lastAlertEl = document.getElementById('last-alert');
 const notesEl = document.getElementById('notes');
 const stateEl = document.getElementById('state');
 const deleteButton = document.getElementById('delete-host');
+const healthChartCtx = document.getElementById('health-chart')?.getContext('2d');
+const interfaceChartCtx = document.getElementById('interface-chart')?.getContext('2d');
+
+let healthChart;
+let interfaceChart;
+let latestSampleTimestamp;
+
+function formatTimestamp(iso) {
+  return new Date(iso).toLocaleTimeString();
+}
+
+function buildOrUpdateCharts(history) {
+  if (!healthChartCtx || !interfaceChartCtx) return;
+
+  const labels = history.map((entry) => formatTimestamp(entry.timestamp));
+  const latencyData = history.map((entry) => entry.latency_ms ?? null);
+  const packetLossData = history.map((entry) => entry.packet_loss_pct ?? null);
+  const successData = history.map((entry) => entry.packet_success_pct ?? null);
+  const packetsReceived = history.map((entry) => entry.packets_received ?? null);
+
+  if (!healthChart) {
+    healthChart = new Chart(healthChartCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Latency (ms)',
+            data: latencyData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Packet loss (%)',
+            data: packetLossData,
+            borderColor: '#e34c26',
+            backgroundColor: 'rgba(227, 76, 38, 0.18)',
+            borderDash: [6, 6],
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            title: { display: true, text: 'Latency (ms)' },
+            beginAtZero: true,
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          y1: {
+            position: 'right',
+            title: { display: true, text: 'Packet loss (%)' },
+            beginAtZero: true,
+            ticks: { color: '#e6edf3' },
+            grid: { drawOnChartArea: false },
+            suggestedMax: 100,
+          },
+          x: {
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+        },
+        plugins: {
+          legend: { labels: { color: '#e6edf3' } },
+        },
+      },
+    });
+  } else {
+    healthChart.data.labels = labels;
+    healthChart.data.datasets[0].data = latencyData;
+    healthChart.data.datasets[1].data = packetLossData;
+    healthChart.update();
+  }
+
+  if (!interfaceChart) {
+    interfaceChart = new Chart(interfaceChartCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Packet success (%)',
+            data: successData,
+            borderColor: '#2ea043',
+            backgroundColor: 'rgba(46, 160, 67, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Packets received',
+            data: packetsReceived,
+            borderColor: '#f0b429',
+            backgroundColor: 'rgba(240, 180, 41, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            suggestedMax: 100,
+            title: { display: true, text: 'Success (%)' },
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          y1: {
+            position: 'right',
+            beginAtZero: true,
+            title: { display: true, text: 'Packets' },
+            ticks: { color: '#e6edf3' },
+            grid: { drawOnChartArea: false },
+          },
+          x: {
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+        },
+        plugins: {
+          legend: { labels: { color: '#e6edf3' } },
+        },
+      },
+    });
+  } else {
+    interfaceChart.data.labels = labels;
+    interfaceChart.data.datasets[0].data = successData;
+    interfaceChart.data.datasets[1].data = packetsReceived;
+    interfaceChart.update();
+  }
+}
+
+async function refreshHistory() {
+  const response = await fetch(`/api/hosts/${address}/history`);
+  if (!response.ok) return;
+  const history = await response.json();
+  if (!history.length) return;
+  latestSampleTimestamp = history[history.length - 1].timestamp;
+  buildOrUpdateCharts(history);
+}
 
 async function refreshHost() {
   const response = await fetch(`/api/hosts/${address}`);
@@ -45,6 +197,16 @@ async function refreshHost() {
     : '—';
   notesEl.textContent = host.notes && host.notes.length ? host.notes.join('; ') : '—';
   stateEl.textContent = host.state;
+
+  if (host.last_checked) {
+    const lastCheckedTime = new Date(host.last_checked).getTime();
+    const latestKnown = latestSampleTimestamp
+      ? new Date(latestSampleTimestamp).getTime()
+      : 0;
+    if (!latestSampleTimestamp || lastCheckedTime > latestKnown) {
+      refreshHistory();
+    }
+  }
 }
 
 if (deleteButton) {
@@ -60,5 +222,6 @@ if (deleteButton) {
 }
 
 refreshHost();
+refreshHistory();
 const pollIntervalMs = Math.max(4000, Number(document.body.dataset.pollInterval || '8') * 1000);
 setInterval(refreshHost, pollIntervalMs);

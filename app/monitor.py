@@ -18,7 +18,7 @@ from pysnmp.hlapi import (  # type: ignore
     getCmd,
 )
 
-from .models import HostConfig, HostStatus
+from .models import HostConfig, HostSample, HostStatus
 from .notifications import NotificationManager
 from .settings import settings
 
@@ -50,6 +50,7 @@ class MonitorService:
         self.statuses: dict[str, HostStatus] = {
             host.address: HostStatus(name=host.name, address=host.address) for host in self.hosts
         }
+        self.history: dict[str, list[HostSample]] = {host.address: [] for host in self.hosts}
         self._task: asyncio.Task | None = None
         self.notifications = NotificationManager()
 
@@ -61,6 +62,9 @@ class MonitorService:
 
     def get_status(self, address: str) -> HostStatus | None:
         return self.statuses.get(address)
+
+    def get_history(self, address: str) -> list[HostSample]:
+        return self.history.get(address, [])
 
     async def start(self) -> None:
         if self._task:
@@ -116,6 +120,7 @@ class MonitorService:
                 continue
             self.hosts.append(host)
             self.statuses[host.address] = HostStatus(name=host.name, address=host.address)
+            self.history.setdefault(host.address, [])
             added.append(host)
         return added
 
@@ -126,6 +131,7 @@ class MonitorService:
         if not removed:
             return False
         self.hosts = [host for host in self.hosts if host.address != address]
+        self.history.pop(address, None)
         return True
 
     def hosts_from_range(
@@ -184,7 +190,28 @@ class MonitorService:
             status.notes = [f"Error checking host: {exc}"]
         status.last_checked = now
 
+        self._record_sample(status, now)
         await self._maybe_notify(status)
+
+    def _record_sample(self, status: HostStatus, timestamp: datetime) -> None:
+        samples = self.history.setdefault(status.address, [])
+        samples.append(
+            HostSample(
+                timestamp=timestamp,
+                latency_ms=status.latency_ms,
+                latency_min_ms=status.latency_min_ms,
+                latency_max_ms=status.latency_max_ms,
+                packet_loss_pct=status.packet_loss_pct,
+                packet_success_pct=status.packet_success_pct,
+                packets_sent=status.packets_sent,
+                packets_received=status.packets_received,
+                reachable=status.reachable,
+            )
+        )
+        max_samples = 200
+        if len(samples) > max_samples:
+            del samples[:-max_samples]
+
 
     def _fetch_sysname(self, host: HostConfig) -> str | None:
         try:
