@@ -6,4 +6,5 @@ httpx==0.25.0
 pydantic-settings==2.0.3
 pysnmp==4.4.12
 pyasn1==0.4.8
+py3-asyncore==1.0.2
 PyYAML==6.0.1

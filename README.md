@@ -16,6 +16,7 @@ A lightweight FastAPI-powered SNMP and ICMP monitor with a modern web dashboard.
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
+   The requirements include the `py3-asyncore` shim so `pysnmp` works on Python 3.12+ where the standard `asyncore` module was removed.
 
 2. **Configure hosts**
    Edit `config/hosts.yaml` and add your network devices. If the file is empty, demo hosts are used.
