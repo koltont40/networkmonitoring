@@ -16,7 +16,15 @@ A lightweight FastAPI-powered SNMP and ICMP monitor with a modern web dashboard.
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-   The requirements include the `py3-asyncore` shim so `pysnmp` works on Python 3.12+ where the standard `asyncore` module was removed.
+   Python 3.12 no longer bundles `asyncore`/`asynchat`, so the project includes local copies of these modules to keep `pysnmp` working without pulling an external shim.
+
+   **Ubuntu 24.04 without a virtualenv** (tested):
+   ```bash
+   sudo apt-get update && sudo apt-get install -y python3 python3-pip
+   python3 -m pip install -r requirements.txt
+   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+   ```
+   The bundled `asyncore.py`/`asynchat.py` modules ensure `pysnmp` imports cleanly on Python 3.12. Press `Ctrl+C` to stop the server.
 
 2. **Configure hosts**
    Edit `config/hosts.yaml` and add your network devices. If the file is empty, demo hosts are used.
