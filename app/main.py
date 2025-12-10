@@ -5,13 +5,13 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
-from .models import HostStatus
+from .models import HostRangeRequest, HostRangeResponse, HostStatus
 from .monitor import MonitorService, load_hosts
 from .settings import settings
 
@@ -63,6 +63,29 @@ async def hosts(monitor: Annotated[MonitorService, Depends(get_monitor)]):
 async def rescan(monitor: Annotated[MonitorService, Depends(get_monitor)]):
     await monitor._check_all_hosts()  # noqa: SLF001
     return {"status": "ok"}
+
+
+@app.post("/api/hosts", response_model=HostRangeResponse)
+async def add_hosts(
+    payload: HostRangeRequest, monitor: Annotated[MonitorService, Depends(get_monitor)]
+):
+    try:
+        hosts = monitor.hosts_from_range(
+            payload.range,
+            community=payload.community,
+            snmp_port=payload.snmp_port,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    added = monitor.add_hosts(hosts)
+    for host in added:
+        await monitor._check_host(host)
+
+    skipped = len(hosts) - len(added)
+    return HostRangeResponse(
+        added=len(added), skipped=skipped, hosts=[host.address for host in added]
+    )
 
 
 if __name__ == "__main__":

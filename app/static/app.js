@@ -42,3 +42,44 @@ fetchHosts();
 setInterval(fetchHosts, 8000);
 
 document.getElementById('rescan').addEventListener('click', triggerRescan);
+
+const addForm = document.getElementById('add-hosts-form');
+const rangeInput = document.getElementById('range');
+const communityInput = document.getElementById('community');
+const snmpPortInput = document.getElementById('snmp-port');
+const statusEl = document.getElementById('add-status');
+
+addForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  statusEl.textContent = 'Adding hosts...';
+  const payload = {
+    range: rangeInput.value.trim(),
+    community: communityInput.value.trim() || null,
+    snmp_port: snmpPortInput.value ? Number(snmpPortInput.value) : null,
+  };
+
+  try {
+    const response = await fetch('/api/hosts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      statusEl.textContent = error.detail || 'Failed to add hosts';
+      statusEl.classList.add('text--error');
+      return;
+    }
+
+    const result = await response.json();
+    statusEl.classList.remove('text--error');
+    statusEl.textContent = `Added ${result.added} host(s)` + (result.skipped ? `, skipped ${result.skipped}` : '');
+    if (result.added) {
+      await fetchHosts();
+    }
+  } catch (error) {
+    statusEl.textContent = error.message || 'Unexpected error';
+    statusEl.classList.add('text--error');
+  }
+});

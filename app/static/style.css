@@ -67,6 +67,10 @@ main {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
+.card--form {
+  margin-bottom: 20px;
+}
+
 .card__header {
   display: flex;
   justify-content: space-between;
@@ -77,6 +81,55 @@ main {
 
 .card__header h2 {
   margin: 6px 0 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 18px 20px 24px;
+}
+
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.form__field input {
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+.form__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  grid-column: 1 / -1;
+}
+
+.form__actions button,
+.card--form button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.form__actions button:hover,
+.card--form button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.45);
 }
 
 .table {
@@ -148,6 +201,10 @@ main {
   gap: 12px;
   color: var(--muted);
   font-size: 14px;
+}
+
+.text--error {
+  color: #f87171;
 }
 
 @media (max-width: 900px) {

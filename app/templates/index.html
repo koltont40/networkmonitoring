@@ -20,6 +20,46 @@
     </header>
 
     <main>
+      <section class="card card--form">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Bulk add</p>
+            <h2>Add IP ranges</h2>
+            <p class="muted">Add CIDR blocks or start-end ranges with custom SNMP community strings.</p>
+          </div>
+        </header>
+        <form id="add-hosts-form" class="form-grid" aria-label="Add new hosts">
+          <label class="form__field">
+            <span>IP range</span>
+            <input
+              type="text"
+              id="range"
+              name="range"
+              placeholder="192.168.1.0/28 or 192.168.1.10-192.168.1.25"
+              required
+            />
+          </label>
+          <label class="form__field">
+            <span>SNMP community</span>
+            <input
+              type="text"
+              id="community"
+              name="community"
+              placeholder="public"
+              value="{{ settings.snmp_community }}"
+            />
+          </label>
+          <label class="form__field">
+            <span>SNMP port (optional)</span>
+            <input type="number" id="snmp-port" name="snmp_port" min="1" max="65535" placeholder="{{ settings.snmp_port }}" />
+          </label>
+          <div class="form__actions">
+            <button type="submit">Add hosts</button>
+            <p id="add-status" class="muted" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+
       <section class="card">
         <header class="card__header">
           <div>

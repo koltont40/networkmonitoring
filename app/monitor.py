@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -78,6 +79,55 @@ class MonitorService:
     async def _check_all_hosts(self) -> None:
         for host in self.hosts:
             await self._check_host(host)
+
+    def expand_range(self, range_text: str) -> list[str]:
+        """Expand CIDR, start-end pairs, or single IPs into a list of addresses."""
+
+        cleaned = range_text.strip()
+        if "-" in cleaned:
+            start_raw, end_raw = [part.strip() for part in cleaned.split("-", 1)]
+            start_ip = ipaddress.ip_address(start_raw)
+            end_ip = ipaddress.ip_address(end_raw)
+            if start_ip.version != end_ip.version or int(end_ip) < int(start_ip):
+                raise ValueError("Invalid IP range ordering")
+            distance = int(end_ip) - int(start_ip)
+            return [str(ipaddress.ip_address(int(start_ip) + offset)) for offset in range(distance + 1)]
+
+        try:
+            network = ipaddress.ip_network(cleaned, strict=False)
+            return [str(host) for host in network.hosts()] or [str(network.network_address)]
+        except ValueError:
+            # fall back to single IP
+            ipaddress.ip_address(cleaned)
+            return [cleaned]
+
+    def add_hosts(self, hosts: Iterable[HostConfig]) -> list[HostConfig]:
+        """Add hosts to the monitor, skipping duplicates."""
+
+        added: list[HostConfig] = []
+        for host in hosts:
+            if host.address in self.statuses:
+                continue
+            self.hosts.append(host)
+            self.statuses[host.address] = HostStatus(name=host.name, address=host.address)
+            added.append(host)
+        return added
+
+    def hosts_from_range(
+        self, range_text: str, community: str | None = None, snmp_port: int | None = None
+    ) -> list[HostConfig]:
+        addresses = self.expand_range(range_text)
+        community_value = community or settings.snmp_community
+        snmp_port_value = snmp_port or settings.snmp_port
+        return [
+            HostConfig(
+                name=address,
+                address=address,
+                snmp_community=community_value,
+                snmp_port=snmp_port_value,
+            )
+            for address in addresses
+        ]
 
     async def _check_host(self, host: HostConfig) -> None:
         status = self.statuses[host.address]
