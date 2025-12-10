@@ -99,6 +99,7 @@ async def add_hosts(
             payload.range,
             community=payload.community,
             snmp_port=payload.snmp_port,
+            interface_index=payload.interface_index,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

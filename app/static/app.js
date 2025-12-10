@@ -73,6 +73,7 @@ const addForm = document.getElementById('add-hosts-form');
 const rangeInput = document.getElementById('range');
 const communityInput = document.getElementById('community');
 const snmpPortInput = document.getElementById('snmp-port');
+const interfaceIndexInput = document.getElementById('interface-index');
 const statusEl = document.getElementById('add-status');
 
 addForm.addEventListener('submit', async (event) => {
@@ -82,6 +83,7 @@ addForm.addEventListener('submit', async (event) => {
     range: rangeInput.value.trim(),
     community: communityInput.value.trim() || null,
     snmp_port: snmpPortInput.value ? Number(snmpPortInput.value) : null,
+    interface_index: interfaceIndexInput.value ? Number(interfaceIndexInput.value) : null,
   };
 
   try {
