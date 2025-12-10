@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Settings - Network Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body data-poll-interval="{{ settings.monitor_interval_seconds }}">
+    <header class="hero hero--compact">
+      <div>
+        <p class="eyebrow"><a href="/">← Back to dashboard</a></p>
+        <h1>Monitoring settings</h1>
+        <p class="muted">Tune polling cadence, alert destinations, and default SNMP options.</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="card card--form">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Intervals & thresholds</p>
+            <h2>Core configuration</h2>
+            <p class="muted">Update the poll interval and baseline thresholds used for alerts.</p>
+          </div>
+        </header>
+        <form id="settings-form" class="form-grid" aria-label="Save settings">
+          <label class="form__field">
+            <span>Poll interval (seconds)</span>
+            <input type="number" id="monitor-interval" name="monitor_interval_seconds" min="5" value="{{ settings.monitor_interval_seconds }}" required />
+          </label>
+          <label class="form__field">
+            <span>Latency threshold (ms)</span>
+            <input type="number" id="latency-threshold" name="latency_threshold_ms" min="1" value="{{ settings.latency_threshold_ms }}" required />
+          </label>
+          <label class="form__field">
+            <span>Packet loss threshold (%)</span>
+            <input type="number" id="packet-threshold" name="packet_loss_threshold_pct" min="0" max="100" value="{{ settings.packet_loss_threshold_pct }}" required />
+          </label>
+          <label class="form__field">
+            <span>Default SNMP community</span>
+            <input type="text" id="default-community" name="snmp_community" value="{{ settings.snmp_community }}" />
+          </label>
+          <label class="form__field">
+            <span>Default SNMP port</span>
+            <input type="number" id="default-snmp-port" name="snmp_port" min="1" max="65535" value="{{ settings.snmp_port }}" />
+          </label>
+          <div class="form__actions">
+            <button type="submit">Save settings</button>
+            <p id="settings-status" class="muted" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card card--form">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Notifications</p>
+            <h2>Email & Slack</h2>
+            <p class="muted">Configure alert destinations for outages and recoveries.</p>
+          </div>
+        </header>
+        <form id="alerts-form" class="form-grid" aria-label="Save alert settings">
+          <label class="form__field">
+            <span>SMTP host</span>
+            <input type="text" id="smtp-host" name="smtp_host" value="{{ settings.smtp_host or '' }}" />
+          </label>
+          <label class="form__field">
+            <span>SMTP port</span>
+            <input type="number" id="smtp-port" name="smtp_port" min="1" max="65535" value="{{ settings.smtp_port }}" />
+          </label>
+          <label class="form__field">
+            <span>SMTP username</span>
+            <input type="text" id="smtp-username" name="smtp_username" value="{{ settings.smtp_username or '' }}" />
+          </label>
+          <label class="form__field">
+            <span>SMTP password</span>
+            <input type="password" id="smtp-password" name="smtp_password" value="{{ settings.smtp_password or '' }}" />
+          </label>
+          <label class="form__field">
+            <span>SMTP sender</span>
+            <input type="email" id="smtp-sender" name="smtp_sender" value="{{ settings.smtp_sender or '' }}" />
+          </label>
+          <label class="form__field">
+            <span>SMTP recipients (comma separated)</span>
+            <input type="text" id="smtp-recipients" name="smtp_recipients" value="{{ settings.smtp_recipients | join(', ') }}" />
+          </label>
+          <label class="form__field form__field--wide">
+            <span>Slack webhook URL</span>
+            <input type="url" id="slack-webhook" name="slack_webhook_url" value="{{ settings.slack_webhook_url or '' }}" />
+          </label>
+          <div class="form__actions">
+            <button type="submit">Save alerts</button>
+            <p id="alerts-status" class="muted" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card card--form">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Bulk add</p>
+            <h2>Add subnets</h2>
+            <p class="muted">Add CIDR blocks or explicit ranges using the defaults above.</p>
+          </div>
+        </header>
+        <form id="add-hosts-form" class="form-grid" aria-label="Add new subnets">
+          <label class="form__field form__field--wide">
+            <span>IP range</span>
+            <input type="text" id="range" name="range" placeholder="10.0.0.0/24 or 10.0.0.5-10.0.0.25" required />
+          </label>
+          <label class="form__field">
+            <span>SNMP community</span>
+            <input type="text" id="community" name="community" placeholder="public" value="{{ settings.snmp_community }}" />
+          </label>
+          <label class="form__field">
+            <span>SNMP port (optional)</span>
+            <input type="number" id="snmp-port" name="snmp_port" min="1" max="65535" placeholder="{{ settings.snmp_port }}" />
+          </label>
+          <div class="form__actions">
+            <button type="submit">Add hosts</button>
+            <p id="add-status" class="muted" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/settings.js"></script>
+  </body>
+</html>

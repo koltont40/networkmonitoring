@@ -19,7 +19,12 @@ class HostStatus(BaseModel):
     name: str
     address: str
     latency_ms: Optional[float] = None
+    latency_min_ms: Optional[float] = None
+    latency_max_ms: Optional[float] = None
     packet_loss_pct: Optional[float] = None
+    packet_success_pct: Optional[float] = None
+    packets_sent: Optional[int] = None
+    packets_received: Optional[int] = None
     reachable: bool = False
     last_checked: Optional[datetime] = None
     snmp_sysname: Optional[str] = None
@@ -51,3 +56,33 @@ class HostRangeResponse(BaseModel):
     added: int
     skipped: int
     hosts: list[str]
+
+
+class SettingsPayload(BaseModel):
+    monitor_interval_seconds: int
+    latency_threshold_ms: float
+    packet_loss_threshold_pct: float
+    smtp_host: Optional[str]
+    smtp_port: int
+    smtp_username: Optional[str]
+    smtp_password: Optional[str]
+    smtp_sender: Optional[str]
+    smtp_recipients: list[str]
+    slack_webhook_url: Optional[str]
+    snmp_community: str
+    snmp_port: int
+
+
+class SettingsUpdate(BaseModel):
+    monitor_interval_seconds: Optional[int] = Field(None, ge=5)
+    latency_threshold_ms: Optional[float] = Field(None, ge=1)
+    packet_loss_threshold_pct: Optional[float] = Field(None, ge=0, le=100)
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = Field(None, ge=1, le=65535)
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_sender: Optional[str] = None
+    smtp_recipients: Optional[list[str] | str] = None
+    slack_webhook_url: Optional[str] = None
+    snmp_community: Optional[str] = None
+    snmp_port: Optional[int] = Field(None, ge=1, le=65535)

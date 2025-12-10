@@ -7,14 +7,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
-  <body>
+  <body data-poll-interval="{{ settings.monitor_interval_seconds }}">
     <header class="hero">
       <div>
         <p class="eyebrow">SNMP Aware</p>
         <h1>Network Monitoring Dashboard</h1>
         <p>Real-time visibility into latency, reachability, and SNMP metadata.</p>
       </div>
-      <div class="cta">
+      <div class="cta cta--split">
+        <a class="link" href="/settings">Settings</a>
         <button id="rescan" aria-label="Force immediate rescan">Rescan now</button>
       </div>
     </header>
