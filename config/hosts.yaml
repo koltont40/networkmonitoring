@@ -1,0 +1,10 @@
+# Example hosts configuration used by the monitor service.
+# Provide name and address. Optionally override the SNMP community or port per host.
+- name: Core Router
+  address: 192.168.1.1
+  snmp_community: public
+  snmp_port: 161
+- name: Edge Firewall
+  address: 192.168.1.254
+  snmp_community: public
+  snmp_port: 161
