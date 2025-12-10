@@ -147,7 +147,7 @@ class MonitorService:
         addresses = self.expand_range(range_text)
         community_value = community or settings.snmp_community
         snmp_port_value = snmp_port or settings.snmp_port
-        interface_index_value = interface_index or 1
+        interface_index_value = interface_index if interface_index is not None else 1
         return [
             HostConfig(
                 name=address,
@@ -329,10 +329,8 @@ class MonitorService:
             ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.2"),  # lmTempSensorsValue.2
             ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.2"),  # entPhySensorValue.2
         ]
-        psu_oid_templates = [
-            "1.3.6.1.2.1.25.3.2.1.5.{index}",  # hrDeviceStatus.{index}
-            "1.3.6.1.2.1.33.1.2.2.1.4.{index}",  # upsOutputSource.{index}
-        ]
+        hr_device_status = "1.3.6.1.2.1.25.3.2.1.5.{index}"
+        ups_output_source = "1.3.6.1.2.1.33.1.2.2.1.4.{index}"
 
         def _first_value(identities: list[ObjectIdentity]) -> float | int | str | None:
             for oid in identities:
@@ -371,7 +369,7 @@ class MonitorService:
 
         psu_statuses: list[str] = []
 
-        def _decode_psu(value: float | int | str | None) -> str | None:
+        def _decode_hr_device_status(value: float | int | str | None) -> str | None:
             if value is None:
                 return None
             try:
@@ -387,13 +385,41 @@ class MonitorService:
             except (TypeError, ValueError):
                 return str(value)
 
-        for index in (1, 2):
-            psu_oids = [ObjectIdentity(oid.format(index=index)) for oid in psu_oid_templates]
-            status_value = _decode_psu(_first_value(psu_oids))
-            if status_value is None:
-                continue
+        def _decode_ups_output_source(value: float | int | str | None) -> str | None:
+            if value is None:
+                return None
+            try:
+                source_state = int(value)
+                source_map = {
+                    1: "other",
+                    2: None,  # "none" means the source is not active/present
+                    3: "normal",
+                    4: "bypass",
+                    5: "battery",
+                    6: "booster",
+                    7: "reducer",
+                }
+                return source_map.get(source_state, str(source_state))
+            except (TypeError, ValueError):
+                return str(value)
 
-            if index == 2 and status_value == "unknown":
+        def _psu_status(index: int) -> str | None:
+            hr_value = _first_value([ObjectIdentity(hr_device_status.format(index=index))])
+            decoded_hr = _decode_hr_device_status(hr_value)
+
+            ups_value = _first_value([ObjectIdentity(ups_output_source.format(index=index))])
+            decoded_ups = _decode_ups_output_source(ups_value)
+
+            chosen = decoded_hr or decoded_ups
+
+            if chosen in {None, "unknown"}:
+                return None
+
+            return chosen
+
+        for index in (1, 2):
+            status_value = _psu_status(index)
+            if status_value is None:
                 continue
 
             psu_statuses.append(f"PSU{index}: {status_value}")

@@ -81,6 +81,9 @@ class HostRangeRequest(BaseModel):
         None, description="SNMP community string to use for the new hosts"
     )
     snmp_port: Optional[int] = Field(None, description="SNMP port override")
+    interface_index: Optional[int] = Field(
+        None, ge=1, description="Interface index to use for SNMP metrics"
+    )
 
 
 class HostRangeResponse(BaseModel):

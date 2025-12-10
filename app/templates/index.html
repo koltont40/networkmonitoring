@@ -54,6 +54,16 @@
             <span>SNMP port (optional)</span>
             <input type="number" id="snmp-port" name="snmp_port" min="1" max="65535" placeholder="{{ settings.snmp_port }}" />
           </label>
+          <label class="form__field">
+            <span>Interface index (optional)</span>
+            <input
+              type="number"
+              id="interface-index"
+              name="interface_index"
+              min="1"
+              placeholder="1"
+            />
+          </label>
           <div class="form__actions">
             <button type="submit">Add hosts</button>
             <p id="add-status" class="muted" role="status" aria-live="polite"></p>
