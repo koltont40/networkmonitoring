@@ -178,6 +178,13 @@ class MonitorService:
                 status.notes.append(f"High latency: {status.latency_ms:.1f} ms")
 
             status.snmp_sysname = await asyncio.to_thread(self._fetch_sysname, host)
+            status.cpu_usage_pct, status.memory_used_pct = await asyncio.to_thread(
+                self._fetch_health_metrics, host
+            )
+            (
+                status.interface_temp_c,
+                status.psu_status,
+            ) = await asyncio.to_thread(self._fetch_environment_metrics, host)
         except Exception as exc:  # pragma: no cover - network dependent
             status.reachable = False
             status.latency_ms = None
@@ -187,6 +194,10 @@ class MonitorService:
             status.packet_success_pct = None
             status.packets_sent = None
             status.packets_received = None
+            status.cpu_usage_pct = None
+            status.memory_used_pct = None
+            status.interface_temp_c = None
+            status.psu_status = None
             status.notes = [f"Error checking host: {exc}"]
         status.last_checked = now
 
@@ -205,6 +216,10 @@ class MonitorService:
                 packet_success_pct=status.packet_success_pct,
                 packets_sent=status.packets_sent,
                 packets_received=status.packets_received,
+                cpu_usage_pct=status.cpu_usage_pct,
+                memory_used_pct=status.memory_used_pct,
+                interface_temp_c=status.interface_temp_c,
+                psu_status=status.psu_status,
                 reachable=status.reachable,
             )
         )
@@ -230,6 +245,103 @@ class MonitorService:
         except Exception:
             return None
         return None
+
+    def _fetch_health_metrics(self, host: HostConfig) -> tuple[float | None, float | None]:
+        """Fetch CPU idle, total, and available memory to derive health stats."""
+
+        cpu_idle_oid = ObjectIdentity("1.3.6.1.4.1.2021.11.9.0")  # ssCpuIdle
+        mem_total_oid = ObjectIdentity("1.3.6.1.4.1.2021.4.5.0")  # memTotalReal
+        mem_avail_oid = ObjectIdentity("1.3.6.1.4.1.2021.4.6.0")  # memAvailReal
+
+        try:
+            iterator = getCmd(
+                SnmpEngine(),
+                CommunityData(host.snmp_community),
+                UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
+                ContextData(),
+                ObjectType(cpu_idle_oid),
+                ObjectType(mem_total_oid),
+                ObjectType(mem_avail_oid),
+            )
+            error_indication, error_status, error_index, var_binds = next(iterator)
+            if error_indication or error_status:
+                return None, None
+
+            values: dict[str, float] = {}
+            for var_bind in var_binds:
+                oid, value = var_bind
+                values[str(oid)] = float(value)
+
+            cpu_idle = values.get(str(cpu_idle_oid.getOid()))
+            mem_total = values.get(str(mem_total_oid.getOid()))
+            mem_avail = values.get(str(mem_avail_oid.getOid()))
+
+            cpu_usage = 100.0 - cpu_idle if cpu_idle is not None else None
+            memory_used_pct = (
+                ((mem_total - mem_avail) / mem_total) * 100 if mem_total else None
+            )
+            return cpu_usage, memory_used_pct
+        except Exception:
+            return None, None
+
+    def _fetch_environment_metrics(
+        self, host: HostConfig
+    ) -> tuple[float | None, str | None]:
+        """Fetch interface temperature and PSU status using best-effort SNMP lookups."""
+
+        temp_oids = [
+            ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.1"),  # lmTempSensorsValue.1
+            ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.1"),  # entPhySensorValue.1
+        ]
+        psu_oids = [
+            ObjectIdentity("1.3.6.1.2.1.25.3.2.1.5.1"),  # hrDeviceStatus.1
+            ObjectIdentity("1.3.6.1.2.1.33.1.2.2.1.4.1"),  # upsOutputSource.1
+        ]
+
+        def _first_value(identities: list[ObjectIdentity]) -> float | int | str | None:
+            for oid in identities:
+                try:
+                    iterator = getCmd(
+                        SnmpEngine(),
+                        CommunityData(host.snmp_community),
+                        UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
+                        ContextData(),
+                        ObjectType(oid),
+                    )
+                    error_indication, error_status, _error_index, var_binds = next(iterator)
+                    if error_indication or error_status:
+                        continue
+                    for _, value in var_binds:
+                        return value  # type: ignore[return-value]
+                except Exception:
+                    continue
+            return None
+
+        raw_temp = _first_value(temp_oids)
+        interface_temp_c = None
+        if raw_temp is not None:
+            try:
+                interface_temp_c = float(raw_temp)
+            except (TypeError, ValueError):
+                interface_temp_c = None
+
+        raw_psu = _first_value(psu_oids)
+        psu_status = None
+        if raw_psu is not None:
+            try:
+                psu_state = int(raw_psu)
+                psu_status_map = {
+                    1: "unknown",
+                    2: "ok",
+                    3: "warning",
+                    4: "testing",
+                    5: "down",
+                }
+                psu_status = psu_status_map.get(psu_state, str(psu_state))
+            except (TypeError, ValueError):
+                psu_status = str(raw_psu)
+
+        return interface_temp_c, psu_status
 
     async def _maybe_notify(self, status: HostStatus) -> None:
         """Send alerts when a host enters an alerting state or recovers."""

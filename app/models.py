@@ -25,6 +25,10 @@ class HostStatus(BaseModel):
     packet_success_pct: Optional[float] = None
     packets_sent: Optional[int] = None
     packets_received: Optional[int] = None
+    cpu_usage_pct: Optional[float] = None
+    memory_used_pct: Optional[float] = None
+    interface_temp_c: Optional[float] = None
+    psu_status: Optional[str] = None
     reachable: bool = False
     last_checked: Optional[datetime] = None
     snmp_sysname: Optional[str] = None
@@ -53,6 +57,10 @@ class HostSample(BaseModel):
     packet_success_pct: Optional[float] = None
     packets_sent: Optional[int] = None
     packets_received: Optional[int] = None
+    cpu_usage_pct: Optional[float] = None
+    memory_used_pct: Optional[float] = None
+    interface_temp_c: Optional[float] = None
+    psu_status: Optional[str] = None
     reachable: bool
 
 
