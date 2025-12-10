@@ -42,6 +42,20 @@ class HostStatus(BaseModel):
         arbitrary_types_allowed = True
 
 
+class HostSample(BaseModel):
+    """Historical snapshot of a host's health and interface data."""
+
+    timestamp: datetime
+    latency_ms: Optional[float] = None
+    latency_min_ms: Optional[float] = None
+    latency_max_ms: Optional[float] = None
+    packet_loss_pct: Optional[float] = None
+    packet_success_pct: Optional[float] = None
+    packets_sent: Optional[int] = None
+    packets_received: Optional[int] = None
+    reachable: bool
+
+
 class HostRangeRequest(BaseModel):
     """Payload for adding a range of hosts from the dashboard."""
 
