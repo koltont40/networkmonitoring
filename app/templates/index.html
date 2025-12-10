@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SNMP Network Monitor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">SNMP Aware</p>
+        <h1>Network Monitoring Dashboard</h1>
+        <p>Real-time visibility into latency, reachability, and SNMP metadata.</p>
+      </div>
+      <div class="cta">
+        <button id="rescan" aria-label="Force immediate rescan">Rescan now</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card card--form">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Bulk add</p>
+            <h2>Add IP ranges</h2>
+            <p class="muted">Add CIDR blocks or start-end ranges with custom SNMP community strings.</p>
+          </div>
+        </header>
+        <form id="add-hosts-form" class="form-grid" aria-label="Add new hosts">
+          <label class="form__field">
+            <span>IP range</span>
+            <input
+              type="text"
+              id="range"
+              name="range"
+              placeholder="192.168.1.0/28 or 192.168.1.10-192.168.1.25"
+              required
+            />
+          </label>
+          <label class="form__field">
+            <span>SNMP community</span>
+            <input
+              type="text"
+              id="community"
+              name="community"
+              placeholder="public"
+              value="{{ settings.snmp_community }}"
+            />
+          </label>
+          <label class="form__field">
+            <span>SNMP port (optional)</span>
+            <input type="number" id="snmp-port" name="snmp_port" min="1" max="65535" placeholder="{{ settings.snmp_port }}" />
+          </label>
+          <div class="form__actions">
+            <button type="submit">Add hosts</button>
+            <p id="add-status" class="muted" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">Polling every {{ settings.monitor_interval_seconds }}s</p>
+            <h2>Hosts</h2>
+          </div>
+          <div class="legend">
+            <span class="badge badge--ok"></span> Healthy
+            <span class="badge badge--alert"></span> Alert
+            <span class="badge badge--pending"></span> Pending
+          </div>
+        </header>
+        <div class="table" role="table">
+          <div class="table__row table__head" role="row">
+            <div>Host</div>
+            <div>Latency (ms)</div>
+            <div>Packet loss (%)</div>
+            <div>SNMP sysName</div>
+            <div>Last check</div>
+            <div>Notes</div>
+          </div>
+          <div id="table-body">
+            {% for host in statuses %}
+            <div class="table__row" role="row">
+              <div class="table__cell">
+                <span class="badge badge--{{ host.state }}" aria-hidden="true"></span>
+                <div>
+                  <div class="host">{{ host.name }}</div>
+                  <div class="muted">{{ host.address }}</div>
+                </div>
+              </div>
+              <div class="table__cell">{{ '%.1f' % host.latency_ms if host.latency_ms is not none else '—' }}</div>
+              <div class="table__cell">{{ '%.1f' % host.packet_loss_pct if host.packet_loss_pct is not none else '—' }}</div>
+              <div class="table__cell">{{ host.snmp_sysname or '—' }}</div>
+              <div class="table__cell">{{ host.last_checked.strftime('%H:%M:%S') if host.last_checked else '—' }}</div>
+              <div class="table__cell">{{ '; '.join(host.notes) if host.notes else '—' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
