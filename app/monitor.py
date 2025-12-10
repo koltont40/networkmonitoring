@@ -390,8 +390,13 @@ class MonitorService:
         for index in (1, 2):
             psu_oids = [ObjectIdentity(oid.format(index=index)) for oid in psu_oid_templates]
             status_value = _decode_psu(_first_value(psu_oids))
-            if status_value is not None:
-                psu_statuses.append(f"PSU{index}: {status_value}")
+            if status_value is None:
+                continue
+
+            if index == 2 and status_value == "unknown":
+                continue
+
+            psu_statuses.append(f"PSU{index}: {status_value}")
 
         return interface_temp_c, system_temp_c, psu_statuses
 
