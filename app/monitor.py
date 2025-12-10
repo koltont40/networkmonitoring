@@ -53,6 +53,7 @@ class MonitorService:
         self.history: dict[str, list[HostSample]] = {host.address: [] for host in self.hosts}
         self._task: asyncio.Task | None = None
         self.notifications = NotificationManager()
+        self._previous_counters: dict[str, tuple[int, int, datetime]] = {}
 
     def get_statuses(self, reachable_only: bool = False) -> list[HostStatus]:
         statuses = list(self.statuses.values())
@@ -132,6 +133,7 @@ class MonitorService:
             return False
         self.hosts = [host for host in self.hosts if host.address != address]
         self.history.pop(address, None)
+        self._previous_counters.pop(address, None)
         return True
 
     def hosts_from_range(
@@ -183,8 +185,13 @@ class MonitorService:
             )
             (
                 status.interface_temp_c,
+                status.system_temp_c,
                 status.psu_status,
             ) = await asyncio.to_thread(self._fetch_environment_metrics, host)
+            (
+                status.interface_in_bps,
+                status.interface_out_bps,
+            ) = await asyncio.to_thread(self._fetch_interface_throughput, host, now)
         except Exception as exc:  # pragma: no cover - network dependent
             status.reachable = False
             status.latency_ms = None
@@ -197,6 +204,9 @@ class MonitorService:
             status.cpu_usage_pct = None
             status.memory_used_pct = None
             status.interface_temp_c = None
+            status.system_temp_c = None
+            status.interface_in_bps = None
+            status.interface_out_bps = None
             status.psu_status = None
             status.notes = [f"Error checking host: {exc}"]
         status.last_checked = now
@@ -219,6 +229,9 @@ class MonitorService:
                 cpu_usage_pct=status.cpu_usage_pct,
                 memory_used_pct=status.memory_used_pct,
                 interface_temp_c=status.interface_temp_c,
+                system_temp_c=status.system_temp_c,
+                interface_in_bps=status.interface_in_bps,
+                interface_out_bps=status.interface_out_bps,
                 psu_status=status.psu_status,
                 reachable=status.reachable,
             )
@@ -286,12 +299,16 @@ class MonitorService:
 
     def _fetch_environment_metrics(
         self, host: HostConfig
-    ) -> tuple[float | None, str | None]:
-        """Fetch interface temperature and PSU status using best-effort SNMP lookups."""
+    ) -> tuple[float | None, float | None, str | None]:
+        """Fetch interface + system temperatures and PSU status via best-effort SNMP."""
 
-        temp_oids = [
+        interface_temp_oids = [
             ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.1"),  # lmTempSensorsValue.1
             ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.1"),  # entPhySensorValue.1
+        ]
+        system_temp_oids = [
+            ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.2"),  # lmTempSensorsValue.2
+            ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.2"),  # entPhySensorValue.2
         ]
         psu_oids = [
             ObjectIdentity("1.3.6.1.2.1.25.3.2.1.5.1"),  # hrDeviceStatus.1
@@ -317,13 +334,21 @@ class MonitorService:
                     continue
             return None
 
-        raw_temp = _first_value(temp_oids)
+        raw_interface_temp = _first_value(interface_temp_oids)
         interface_temp_c = None
-        if raw_temp is not None:
+        if raw_interface_temp is not None:
             try:
-                interface_temp_c = float(raw_temp)
+                interface_temp_c = float(raw_interface_temp)
             except (TypeError, ValueError):
                 interface_temp_c = None
+
+        raw_system_temp = _first_value(system_temp_oids)
+        system_temp_c = None
+        if raw_system_temp is not None:
+            try:
+                system_temp_c = float(raw_system_temp)
+            except (TypeError, ValueError):
+                system_temp_c = None
 
         raw_psu = _first_value(psu_oids)
         psu_status = None
@@ -341,7 +366,59 @@ class MonitorService:
             except (TypeError, ValueError):
                 psu_status = str(raw_psu)
 
-        return interface_temp_c, psu_status
+        return interface_temp_c, system_temp_c, psu_status
+
+    def _fetch_interface_throughput(
+        self, host: HostConfig, now: datetime
+    ) -> tuple[float | None, float | None]:
+        """Compute interface throughput in bits per second using counter deltas."""
+
+        in_octets_oid = ObjectIdentity("1.3.6.1.2.1.2.2.1.10.1")
+        out_octets_oid = ObjectIdentity("1.3.6.1.2.1.2.2.1.16.1")
+
+        try:
+            iterator = getCmd(
+                SnmpEngine(),
+                CommunityData(host.snmp_community),
+                UdpTransportTarget((host.address, host.snmp_port), timeout=2, retries=0),
+                ContextData(),
+                ObjectType(in_octets_oid),
+                ObjectType(out_octets_oid),
+            )
+            error_indication, error_status, _error_index, var_binds = next(iterator)
+            if error_indication or error_status:
+                return None, None
+
+            values: dict[str, int] = {}
+            for oid, value in var_binds:
+                try:
+                    values[str(oid)] = int(value)
+                except (TypeError, ValueError):
+                    continue
+
+            in_octets = values.get(str(in_octets_oid.getOid()))
+            out_octets = values.get(str(out_octets_oid.getOid()))
+            if in_octets is None or out_octets is None:
+                return None, None
+
+            previous = self._previous_counters.get(host.address)
+            self._previous_counters[host.address] = (in_octets, out_octets, now)
+            if not previous:
+                return None, None
+
+            prev_in, prev_out, prev_time = previous
+            elapsed = (now - prev_time).total_seconds()
+            if elapsed <= 0:
+                return None, None
+
+            def _compute_rate(current: int, previous_value: int) -> float | None:
+                if current < previous_value:
+                    return None
+                return ((current - previous_value) * 8) / elapsed
+
+            return _compute_rate(in_octets, prev_in), _compute_rate(out_octets, prev_out)
+        except Exception:
+            return None, None
 
     async def _maybe_notify(self, status: HostStatus) -> None:
         """Send alerts when a host enters an alerting state or recovers."""

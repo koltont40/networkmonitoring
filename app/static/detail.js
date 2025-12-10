@@ -10,7 +10,9 @@ const sysNameEl = document.getElementById('sysname');
 const cpuEl = document.getElementById('cpu');
 const memoryEl = document.getElementById('memory');
 const interfaceTempEl = document.getElementById('interface-temp');
+const systemTempEl = document.getElementById('system-temp');
 const psuStatusEl = document.getElementById('psu-status');
+const throughputEl = document.getElementById('throughput');
 const lastCheckedEl = document.getElementById('last-checked');
 const lastAlertEl = document.getElementById('last-alert');
 const notesEl = document.getElementById('notes');
@@ -40,6 +42,13 @@ function buildOrUpdateCharts(history) {
   const cpuUsage = history.map((entry) => entry.cpu_usage_pct ?? null);
   const memoryUsage = history.map((entry) => entry.memory_used_pct ?? null);
   const interfaceTemp = history.map((entry) => entry.interface_temp_c ?? null);
+  const systemTemp = history.map((entry) => entry.system_temp_c ?? null);
+  const ingress = history.map((entry) =>
+    entry.interface_in_bps != null ? entry.interface_in_bps / 1_000_000 : null
+  );
+  const egress = history.map((entry) =>
+    entry.interface_out_bps != null ? entry.interface_out_bps / 1_000_000 : null
+  );
 
   if (!healthChart) {
     healthChart = new Chart(healthChartCtx, {
@@ -127,6 +136,24 @@ function buildOrUpdateCharts(history) {
             spanGaps: true,
             yAxisID: 'y1',
           },
+          {
+            label: 'Ingress (Mbps)',
+            data: ingress,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y2',
+          },
+          {
+            label: 'Egress (Mbps)',
+            data: egress,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249, 115, 22, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+            yAxisID: 'y2',
+          },
         ],
       },
       options: {
@@ -147,6 +174,13 @@ function buildOrUpdateCharts(history) {
             ticks: { color: '#e6edf3' },
             grid: { drawOnChartArea: false },
           },
+          y2: {
+            position: 'right',
+            beginAtZero: true,
+            title: { display: true, text: 'Throughput (Mbps)' },
+            ticks: { color: '#e6edf3' },
+            grid: { drawOnChartArea: false },
+          },
           x: {
             ticks: { color: '#e6edf3' },
             grid: { color: 'rgba(255,255,255,0.05)' },
@@ -161,6 +195,8 @@ function buildOrUpdateCharts(history) {
     interfaceChart.data.labels = labels;
     interfaceChart.data.datasets[0].data = successData;
     interfaceChart.data.datasets[1].data = packetsReceived;
+    interfaceChart.data.datasets[2].data = ingress;
+    interfaceChart.data.datasets[3].data = egress;
     interfaceChart.update();
   }
 
@@ -194,6 +230,14 @@ function buildOrUpdateCharts(history) {
             tension: 0.25,
             spanGaps: true,
           },
+          {
+            label: 'System temp (°C)',
+            data: systemTemp,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
         ],
       },
       options: {
@@ -222,6 +266,7 @@ function buildOrUpdateCharts(history) {
     systemChart.data.datasets[0].data = cpuUsage;
     systemChart.data.datasets[1].data = memoryUsage;
     systemChart.data.datasets[2].data = interfaceTemp;
+    systemChart.data.datasets[3].data = systemTemp;
     systemChart.update();
   }
 }
@@ -264,6 +309,12 @@ async function refreshHost() {
     host.memory_used_pct != null ? `${host.memory_used_pct.toFixed(1)}%` : '—';
   interfaceTempEl.textContent =
     host.interface_temp_c != null ? `${host.interface_temp_c.toFixed(1)}°C` : '—';
+  systemTempEl.textContent =
+    host.system_temp_c != null ? `${host.system_temp_c.toFixed(1)}°C` : '—';
+  throughputEl.textContent =
+    host.interface_in_bps != null && host.interface_out_bps != null
+      ? `${(host.interface_in_bps / 1_000_000).toFixed(2)} / ${(host.interface_out_bps / 1_000_000).toFixed(2)} Mbps`
+      : '—';
   psuStatusEl.textContent = host.psu_status || '—';
   lastCheckedEl.textContent = host.last_checked
     ? new Date(host.last_checked).toLocaleString()

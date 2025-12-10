@@ -70,8 +70,19 @@
             <p id="interface-temp">{{ '%.1f' % host.interface_temp_c if host.interface_temp_c is not none else '—' }}°C</p>
           </div>
           <div>
+            <p class="muted">System temp</p>
+            <p id="system-temp">{{ '%.1f' % host.system_temp_c if host.system_temp_c is not none else '—' }}°C</p>
+          </div>
+          <div>
             <p class="muted">PSU status</p>
             <p id="psu-status">{{ host.psu_status or '—' }}</p>
+          </div>
+          <div>
+            <p class="muted">Throughput (in/out)</p>
+            <p id="throughput">
+              {{ '%.2f' % (host.interface_in_bps / 1_000_000) if host.interface_in_bps is not none else '—' }} /
+              {{ '%.2f' % (host.interface_out_bps / 1_000_000) if host.interface_out_bps is not none else '—' }} Mbps
+            </p>
           </div>
           <div>
             <p class="muted">Last checked</p>

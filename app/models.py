@@ -28,6 +28,9 @@ class HostStatus(BaseModel):
     cpu_usage_pct: Optional[float] = None
     memory_used_pct: Optional[float] = None
     interface_temp_c: Optional[float] = None
+    system_temp_c: Optional[float] = None
+    interface_in_bps: Optional[float] = None
+    interface_out_bps: Optional[float] = None
     psu_status: Optional[str] = None
     reachable: bool = False
     last_checked: Optional[datetime] = None
@@ -60,6 +63,9 @@ class HostSample(BaseModel):
     cpu_usage_pct: Optional[float] = None
     memory_used_pct: Optional[float] = None
     interface_temp_c: Optional[float] = None
+    system_temp_c: Optional[float] = None
+    interface_in_bps: Optional[float] = None
+    interface_out_bps: Optional[float] = None
     psu_status: Optional[str] = None
     reachable: bool
 
