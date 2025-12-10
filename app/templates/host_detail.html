@@ -58,6 +58,22 @@
             <p id="sysname">{{ host.snmp_sysname or '—' }}</p>
           </div>
           <div>
+            <p class="muted">CPU usage</p>
+            <p id="cpu">{{ '%.1f' % host.cpu_usage_pct if host.cpu_usage_pct is not none else '—' }}%</p>
+          </div>
+          <div>
+            <p class="muted">Memory used</p>
+            <p id="memory">{{ '%.1f' % host.memory_used_pct if host.memory_used_pct is not none else '—' }}%</p>
+          </div>
+          <div>
+            <p class="muted">Interface temp</p>
+            <p id="interface-temp">{{ '%.1f' % host.interface_temp_c if host.interface_temp_c is not none else '—' }}°C</p>
+          </div>
+          <div>
+            <p class="muted">PSU status</p>
+            <p id="psu-status">{{ host.psu_status or '—' }}</p>
+          </div>
+          <div>
             <p class="muted">Last checked</p>
             <p id="last-checked">{{ host.last_checked.strftime('%Y-%m-%d %H:%M:%S') if host.last_checked else '—' }}</p>
           </div>
@@ -85,6 +101,18 @@
         </header>
         <div class="chart-wrapper">
           <canvas id="health-chart" height="180" aria-label="Latency and packet loss chart"></canvas>
+        </div>
+      </section>
+
+      <section class="card card--detail">
+        <header class="card__header">
+          <div>
+            <p class="eyebrow">System health</p>
+            <h2>CPU, memory, and interface temperature</h2>
+          </div>
+        </header>
+        <div class="chart-wrapper">
+          <canvas id="system-chart" height="180" aria-label="CPU and memory chart"></canvas>
         </div>
       </section>
 

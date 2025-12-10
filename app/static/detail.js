@@ -7,15 +7,21 @@ const packetLossEl = document.getElementById('packet-loss');
 const successRateEl = document.getElementById('success-rate');
 const packetsEl = document.getElementById('packets');
 const sysNameEl = document.getElementById('sysname');
+const cpuEl = document.getElementById('cpu');
+const memoryEl = document.getElementById('memory');
+const interfaceTempEl = document.getElementById('interface-temp');
+const psuStatusEl = document.getElementById('psu-status');
 const lastCheckedEl = document.getElementById('last-checked');
 const lastAlertEl = document.getElementById('last-alert');
 const notesEl = document.getElementById('notes');
 const stateEl = document.getElementById('state');
 const deleteButton = document.getElementById('delete-host');
 const healthChartCtx = document.getElementById('health-chart')?.getContext('2d');
+const systemChartCtx = document.getElementById('system-chart')?.getContext('2d');
 const interfaceChartCtx = document.getElementById('interface-chart')?.getContext('2d');
 
 let healthChart;
+let systemChart;
 let interfaceChart;
 let latestSampleTimestamp;
 
@@ -24,13 +30,16 @@ function formatTimestamp(iso) {
 }
 
 function buildOrUpdateCharts(history) {
-  if (!healthChartCtx || !interfaceChartCtx) return;
+  if (!healthChartCtx || !interfaceChartCtx || !systemChartCtx) return;
 
   const labels = history.map((entry) => formatTimestamp(entry.timestamp));
   const latencyData = history.map((entry) => entry.latency_ms ?? null);
   const packetLossData = history.map((entry) => entry.packet_loss_pct ?? null);
   const successData = history.map((entry) => entry.packet_success_pct ?? null);
   const packetsReceived = history.map((entry) => entry.packets_received ?? null);
+  const cpuUsage = history.map((entry) => entry.cpu_usage_pct ?? null);
+  const memoryUsage = history.map((entry) => entry.memory_used_pct ?? null);
+  const interfaceTemp = history.map((entry) => entry.interface_temp_c ?? null);
 
   if (!healthChart) {
     healthChart = new Chart(healthChartCtx, {
@@ -154,6 +163,67 @@ function buildOrUpdateCharts(history) {
     interfaceChart.data.datasets[1].data = packetsReceived;
     interfaceChart.update();
   }
+
+  if (!systemChart) {
+    systemChart = new Chart(systemChartCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'CPU usage (%)',
+            data: cpuUsage,
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
+          {
+            label: 'Memory used (%)',
+            data: memoryUsage,
+            borderColor: '#ec4899',
+            backgroundColor: 'rgba(236, 72, 153, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
+          {
+            label: 'Interface temp (°C)',
+            data: interfaceTemp,
+            borderColor: '#22d3ee',
+            backgroundColor: 'rgba(34, 211, 238, 0.18)',
+            tension: 0.25,
+            spanGaps: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            suggestedMax: 100,
+            title: { display: true, text: 'Utilization (%)' },
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+          x: {
+            ticks: { color: '#e6edf3' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+          },
+        },
+        plugins: {
+          legend: { labels: { color: '#e6edf3' } },
+        },
+      },
+    });
+  } else {
+    systemChart.data.labels = labels;
+    systemChart.data.datasets[0].data = cpuUsage;
+    systemChart.data.datasets[1].data = memoryUsage;
+    systemChart.data.datasets[2].data = interfaceTemp;
+    systemChart.update();
+  }
 }
 
 async function refreshHistory() {
@@ -189,6 +259,12 @@ async function refreshHost() {
     ? `${host.packets_received}/${host.packets_sent}`
     : '—';
   sysNameEl.textContent = host.snmp_sysname || '—';
+  cpuEl.textContent = host.cpu_usage_pct != null ? `${host.cpu_usage_pct.toFixed(1)}%` : '—';
+  memoryEl.textContent =
+    host.memory_used_pct != null ? `${host.memory_used_pct.toFixed(1)}%` : '—';
+  interfaceTempEl.textContent =
+    host.interface_temp_c != null ? `${host.interface_temp_c.toFixed(1)}°C` : '—';
+  psuStatusEl.textContent = host.psu_status || '—';
   lastCheckedEl.textContent = host.last_checked
     ? new Date(host.last_checked).toLocaleString()
     : '—';
