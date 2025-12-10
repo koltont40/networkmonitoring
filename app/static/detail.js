@@ -341,7 +341,10 @@ async function refreshHost() {
     host.interface_in_bps != null && host.interface_out_bps != null
       ? `${(host.interface_in_bps / 1_000_000).toFixed(2)} / ${(host.interface_out_bps / 1_000_000).toFixed(2)} Mbps`
       : '—';
-  psuStatusEl.textContent = host.psu_status || '—';
+  const psuStatus = Array.isArray(host.psu_statuses)
+    ? host.psu_statuses.join(', ')
+    : host.psu_status;
+  psuStatusEl.textContent = psuStatus || '—';
   lastCheckedEl.textContent = host.last_checked
     ? new Date(host.last_checked).toLocaleString()
     : '—';
