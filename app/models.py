@@ -13,6 +13,7 @@ class HostConfig:
     address: str
     snmp_community: str
     snmp_port: int
+    interface_index: int = 1
 
 
 class HostStatus(BaseModel):
@@ -32,6 +33,7 @@ class HostStatus(BaseModel):
     interface_in_bps: Optional[float] = None
     interface_out_bps: Optional[float] = None
     psu_status: Optional[str] = None
+    psu_statuses: list[str] = Field(default_factory=list)
     reachable: bool = False
     last_checked: Optional[datetime] = None
     snmp_sysname: Optional[str] = None
@@ -67,6 +69,7 @@ class HostSample(BaseModel):
     interface_in_bps: Optional[float] = None
     interface_out_bps: Optional[float] = None
     psu_status: Optional[str] = None
+    psu_statuses: list[str] = Field(default_factory=list)
     reachable: bool
 
 

@@ -75,7 +75,9 @@
           </div>
           <div>
             <p class="muted">PSU status</p>
-            <p id="psu-status">{{ host.psu_status or '—' }}</p>
+            <p id="psu-status">
+              {{ ', '.join(host.psu_statuses) if host.psu_statuses else host.psu_status or '—' }}
+            </p>
           </div>
           <div>
             <p class="muted">Throughput (in/out)</p>

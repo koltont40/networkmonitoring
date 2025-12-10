@@ -39,6 +39,7 @@ def load_hosts(config_path: Path) -> list[HostConfig]:
                 address=entry.get("address"),
                 snmp_community=entry.get("snmp_community", settings.snmp_community),
                 snmp_port=int(entry.get("snmp_port", settings.snmp_port)),
+                interface_index=int(entry.get("interface_index", 1)),
             )
         )
     return hosts
@@ -137,17 +138,23 @@ class MonitorService:
         return True
 
     def hosts_from_range(
-        self, range_text: str, community: str | None = None, snmp_port: int | None = None
+        self,
+        range_text: str,
+        community: str | None = None,
+        snmp_port: int | None = None,
+        interface_index: int | None = None,
     ) -> list[HostConfig]:
         addresses = self.expand_range(range_text)
         community_value = community or settings.snmp_community
         snmp_port_value = snmp_port or settings.snmp_port
+        interface_index_value = interface_index or 1
         return [
             HostConfig(
                 name=address,
                 address=address,
                 snmp_community=community_value,
                 snmp_port=snmp_port_value,
+                interface_index=interface_index_value,
             )
             for address in addresses
         ]
@@ -186,8 +193,9 @@ class MonitorService:
             (
                 status.interface_temp_c,
                 status.system_temp_c,
-                status.psu_status,
+                status.psu_statuses,
             ) = await asyncio.to_thread(self._fetch_environment_metrics, host)
+            status.psu_status = ", ".join(status.psu_statuses) if status.psu_statuses else None
             (
                 status.interface_in_bps,
                 status.interface_out_bps,
@@ -208,6 +216,7 @@ class MonitorService:
             status.interface_in_bps = None
             status.interface_out_bps = None
             status.psu_status = None
+            status.psu_statuses = []
             status.notes = [f"Error checking host: {exc}"]
         status.last_checked = now
 
@@ -233,6 +242,7 @@ class MonitorService:
                 interface_in_bps=status.interface_in_bps,
                 interface_out_bps=status.interface_out_bps,
                 psu_status=status.psu_status,
+                psu_statuses=status.psu_statuses,
                 reachable=status.reachable,
             )
         )
@@ -304,20 +314,24 @@ class MonitorService:
 
     def _fetch_environment_metrics(
         self, host: HostConfig
-    ) -> tuple[float | None, float | None, str | None]:
+    ) -> tuple[float | None, float | None, list[str]]:
         """Fetch interface + system temperatures and PSU status via best-effort SNMP."""
 
         interface_temp_oids = [
-            ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.1"),  # lmTempSensorsValue.1
-            ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.1"),  # entPhySensorValue.1
+            ObjectIdentity(
+                f"1.3.6.1.4.1.2021.13.16.2.1.3.{host.interface_index}"
+            ),  # lmTempSensorsValue.{idx}
+            ObjectIdentity(
+                f"1.3.6.1.2.1.99.1.1.1.4.{host.interface_index}"
+            ),  # entPhySensorValue.{idx}
         ]
         system_temp_oids = [
             ObjectIdentity("1.3.6.1.4.1.2021.13.16.2.1.3.2"),  # lmTempSensorsValue.2
             ObjectIdentity("1.3.6.1.2.1.99.1.1.1.4.2"),  # entPhySensorValue.2
         ]
-        psu_oids = [
-            ObjectIdentity("1.3.6.1.2.1.25.3.2.1.5.1"),  # hrDeviceStatus.1
-            ObjectIdentity("1.3.6.1.2.1.33.1.2.2.1.4.1"),  # upsOutputSource.1
+        psu_oid_templates = [
+            "1.3.6.1.2.1.25.3.2.1.5.{index}",  # hrDeviceStatus.{index}
+            "1.3.6.1.2.1.33.1.2.2.1.4.{index}",  # upsOutputSource.{index}
         ]
 
         def _first_value(identities: list[ObjectIdentity]) -> float | int | str | None:
@@ -355,11 +369,13 @@ class MonitorService:
             except (TypeError, ValueError):
                 system_temp_c = None
 
-        raw_psu = _first_value(psu_oids)
-        psu_status = None
-        if raw_psu is not None:
+        psu_statuses: list[str] = []
+
+        def _decode_psu(value: float | int | str | None) -> str | None:
+            if value is None:
+                return None
             try:
-                psu_state = int(raw_psu)
+                psu_state = int(value)
                 psu_status_map = {
                     1: "unknown",
                     2: "ok",
@@ -367,21 +383,31 @@ class MonitorService:
                     4: "testing",
                     5: "down",
                 }
-                psu_status = psu_status_map.get(psu_state, str(psu_state))
+                return psu_status_map.get(psu_state, str(psu_state))
             except (TypeError, ValueError):
-                psu_status = str(raw_psu)
+                return str(value)
 
-        return interface_temp_c, system_temp_c, psu_status
+        for index in (1, 2):
+            psu_oids = [ObjectIdentity(oid.format(index=index)) for oid in psu_oid_templates]
+            status_value = _decode_psu(_first_value(psu_oids))
+            if status_value is not None:
+                psu_statuses.append(f"PSU{index}: {status_value}")
+
+        return interface_temp_c, system_temp_c, psu_statuses
 
     def _fetch_interface_throughput(
         self, host: HostConfig, now: datetime
     ) -> tuple[float | None, float | None]:
         """Compute interface throughput in bits per second using counter deltas."""
 
-        high_cap_in = ObjectIdentity("1.3.6.1.2.1.31.1.1.1.6.1")
-        high_cap_out = ObjectIdentity("1.3.6.1.2.1.31.1.1.1.10.1")
-        legacy_in = ObjectIdentity("1.3.6.1.2.1.2.2.1.10.1")
-        legacy_out = ObjectIdentity("1.3.6.1.2.1.2.2.1.16.1")
+        high_cap_in = ObjectIdentity(
+            f"1.3.6.1.2.1.31.1.1.1.6.{host.interface_index}"
+        )
+        high_cap_out = ObjectIdentity(
+            f"1.3.6.1.2.1.31.1.1.1.10.{host.interface_index}"
+        )
+        legacy_in = ObjectIdentity(f"1.3.6.1.2.1.2.2.1.10.{host.interface_index}")
+        legacy_out = ObjectIdentity(f"1.3.6.1.2.1.2.2.1.16.{host.interface_index}")
 
         def _fetch_counters(oids: list[ObjectIdentity]) -> dict[str, int]:
             iterator = getCmd(
